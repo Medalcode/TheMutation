@@ -1,0 +1,55 @@
+# humanizer-backend
+
+Microservicio FastAPI para "humanizar" textos generados por IA. Recibe texto, aplica un prompt según tono (académico/ejecutivo/técnico), mide legibilidad con `textstat` y devuelve el texto transformado junto a métricas.
+
+Ver `.env.example` para variables de entorno.
+
+Comandos útiles:
+
+```bash
+# crear entorno e instalar dependencias
+python -m venv .venv
+. .venv/bin/activate
+pip install -r requirements.txt
+
+# ejecutar en desarrollo
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+
+# ejecutar tests
+pytest -q
+
+# alternativas via Makefile
+make install
+make run
+make test
+```
+
+Ejemplo `curl`:
+
+```bash
+curl -X POST http://127.0.0.1:8000/api/v1/humanize \
+	-H 'Content-Type: application/json' \
+	-d '{"texto":"Este es un texto de prueba generado por IA.", "tono":"ejecutivo"}'
+```
+
+Notas:
+- Copia `.env.example` a `.env` y configura `GROQ_API_KEY` y `GROQ_API_URL` si usarás el proveedor.
+- Si no hay `GROQ_API_KEY` configurada, el backend responde con un modo simulado útil para desarrollo.
+ - Si no hay `GROQ_API_KEY` configurada, el backend responde con un modo simulado útil para desarrollo.
+
+Rate limiting
+
+- El servicio incluye un `InMemoryRateLimiter` por IP configurado con las variables de entorno `RATE_LIMIT_REQUESTS` y `RATE_LIMIT_WINDOW` (por defecto 60 requests por 60 segundos). Esto sirve para demo y desarrollo; en producción usa Redis o un API gateway.
+
+Redis-backed limiter
+
+- Si defines `REDIS_URL` en tu `.env` (ej: `redis://localhost:6379/0`) el servicio usará automáticamente `RedisRateLimiter` en vez del in-memory limiter.
+
+Interfaz web
+
+- Hay una interfaz simple disponible en `/ui` cuando ejecutas el servidor. Usa el formulario para pegar el texto IA, seleccionar el tono y obtener el texto humanizado y el diff.
+
+Bitácora
+
+- Consulta la bitácora del desarrollo en [BITACORA.md](./BITACORA.md) para ver tareas realizadas y pendientes.
+
