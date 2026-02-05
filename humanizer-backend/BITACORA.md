@@ -1,6 +1,6 @@
 # Bitácora del proyecto humanizer-backend
 
-Fecha: 24 de enero de 2026
+Fecha: 5 de febrero de 2026
 
 ## Tareas realizadas
 
@@ -18,6 +18,12 @@ Fecha: 24 de enero de 2026
 - 2026-01-24: Añadir tests básicos en `tests/` (tests para endpoints, lógica y rate limiter).
 - 2026-01-24: Añadir `Makefile`, script `scripts/run_tests.sh`, `Dockerfile` y `.gitignore`.
 - 2026-01-24: Añadir workflow CI GitHub Actions en `.github/workflows/ci.yml` para ejecutar tests y lint.
+- 2026-02-05: Refactorizar `app/main.py` para reducir duplicación y centralizar manejo de errores.
+- 2026-02-05: Agregar reglas básicas locales en `app/rules.py` y aplicar en el flujo de `app/logic.py`.
+- 2026-02-05: Habilitar reglas por request (`apply_rules`, `rules_probability`, `rules_seed`).
+- 2026-02-05: Cargar reglas desde archivos en `app/data/` con cache y recarga manual.
+- 2026-02-05: Soporte de matching sin tildes para reglas locales.
+- 2026-02-05: Endpoint admin para recargar reglas en desarrollo (`/api/v1/admin/reload-rules`).
 
 ## Tareas pendientes / Recomendadas
 
@@ -29,6 +35,8 @@ Fecha: 24 de enero de 2026
 - Mejorar el UI: resaltado de diff, descarga de resultados, y pruebas E2E para interfaz.
 - Harden: límites de tamaño de petición a nivel de servidor (Nginx/gateway), autenticación (API keys) y pruebas de carga.
 - Documentación: ejemplos de prompts, análisis comparativo de métricas antes/después y notebook de demostración.
+- Añadir tests para reglas locales y para `rules_probability`/`rules_seed`.
+- Exponer endpoint admin protegido (auth o key) si se quiere recarga en entornos no dev.
 
 ## Notas adicionales
 

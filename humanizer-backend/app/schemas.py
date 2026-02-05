@@ -16,6 +16,9 @@ class TextoInput(BaseModel):
     max_tokens: Optional[int] = Field(None, ge=16, le=4096)
     temperature: Optional[float] = Field(None, ge=0.0, le=1.0)
     top_p: Optional[float] = Field(None, ge=0.0, le=1.0)
+    apply_rules: Optional[bool] = Field(True)
+    rules_probability: Optional[float] = Field(1.0, ge=0.0, le=1.0)
+    rules_seed: Optional[int] = None
     metadata: Optional[Dict[str, Any]] = None
 
 

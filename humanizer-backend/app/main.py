@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.responses import HTMLResponse
@@ -8,8 +8,8 @@ from .middleware import LoggingMiddleware
 from .utils import generar_diff
 from .rate_limiter import InMemoryRateLimiter
 from .redis_rate_limiter import RedisRateLimiter
-from .config import GROQ_API_URL
-from .config import ALLOWED_ORIGINS
+from .rules import recargar_reglas
+from .config import ALLOWED_ORIGINS, ENV
 
 app = FastAPI(title="humanizer-backend")
 
@@ -35,36 +35,52 @@ else:
 app.add_middleware(LoggingMiddleware)
 
 
-@app.post("/api/v1/humanize", response_model=HumanizerResponse, responses={400: {"model": ErrorResponse}})
-async def humanize_endpoint(payload: TextoInput, request: Request):
+def _build_humanize_response(payload: TextoInput) -> dict:
+    humanized_text, metadata, metrics = procesar_humanizacion(
+        payload.texto,
+        tono=payload.tono.value if payload.tono else "neutral",
+        max_tokens=payload.max_tokens,
+        temperature=payload.temperature,
+        top_p=payload.top_p,
+        apply_rules=bool(payload.apply_rules),
+        rules_probability=float(payload.rules_probability) if payload.rules_probability is not None else 1.0,
+        rules_seed=payload.rules_seed,
+    )
+    return {
+        "humanized_text": humanized_text,
+        "metrics": metrics,
+        "model_metadata": metadata,
+        "requested_tone": payload.tono or "neutral",
+        "warnings": None,
+    }
+
+
+def _handle_humanize_errors(fn):
     try:
-        humanized_text, metadata, metrics = procesar_humanizacion(
-            payload.texto,
-            tono=payload.tono.value if payload.tono else "neutral",
-            max_tokens=payload.max_tokens,
-            temperature=payload.temperature,
-            top_p=payload.top_p,
-        )
-        resp = {
-            "humanized_text": humanized_text,
-            "metrics": metrics,
-            "model_metadata": metadata,
-            "requested_tone": payload.tono or "neutral",
-            "warnings": None,
-        }
-        return resp
+        return fn()
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except RuntimeError as e:
-        # provider failure
         return JSONResponse(status_code=502, content={"error": "provider_error", "detail": {"message": str(e)}})
     except Exception:
-        # generic error
         return JSONResponse(status_code=500, content={"error": "internal_server_error"})
+
+
+@app.post("/api/v1/humanize", response_model=HumanizerResponse, responses={400: {"model": ErrorResponse}})
+async def humanize_endpoint(payload: TextoInput):
+    return _handle_humanize_errors(lambda: _build_humanize_response(payload))
 
 
 @app.get("/healthz")
 async def healthz():
+    return {"status": "ok"}
+
+
+@app.post("/api/v1/admin/reload-rules")
+async def reload_rules():
+    if ENV != "development":
+        raise HTTPException(status_code=404, detail="not_found")
+    recargar_reglas()
     return {"status": "ok"}
 
 
@@ -136,28 +152,10 @@ async def ui():
 
 
 @app.post("/api/v1/humanize/diff", response_model=HumanizerResponse, responses={400: {"model": ErrorResponse}})
-async def humanize_with_diff(payload: TextoInput, request: Request):
-    try:
-        humanized_text, metadata, metrics = procesar_humanizacion(
-            payload.texto,
-            tono=payload.tono.value if payload.tono else "neutral",
-            max_tokens=payload.max_tokens,
-            temperature=payload.temperature,
-            top_p=payload.top_p,
-        )
-        diff_text = generar_diff(payload.texto, humanized_text)
-        resp = {
-            "humanized_text": humanized_text,
-            "metrics": metrics,
-            "model_metadata": metadata,
-            "requested_tone": payload.tono or "neutral",
-            "warnings": None,
-            "diff": diff_text,
-        }
+async def humanize_with_diff(payload: TextoInput):
+    def _build():
+        resp = _build_humanize_response(payload)
+        resp["diff"] = generar_diff(payload.texto, resp["humanized_text"])
         return resp
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except RuntimeError as e:
-        return JSONResponse(status_code=502, content={"error": "provider_error", "detail": {"message": str(e)}})
-    except Exception:
-        return JSONResponse(status_code=500, content={"error": "internal_server_error"})
+
+    return _handle_humanize_errors(_build)

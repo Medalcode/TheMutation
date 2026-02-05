@@ -1,0 +1,5 @@
+# formato: original|reemplazo
+por otro lado|por otra parte
+en conclusion|en resumen
+es importante destacar|vale la pena mencionar
+cabe mencionar|vale mencionar

@@ -1,0 +1,6 @@
+# formato: original|reemplazo
+ademas|tambien
+utilizar|usar
+adicional|extra
+significativo|importante
+muy|bastante
