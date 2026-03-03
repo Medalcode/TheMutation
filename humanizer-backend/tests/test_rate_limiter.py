@@ -2,14 +2,14 @@ import time
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from app.rate_limiter import InMemoryRateLimiter
+from app.limiter import RateLimiter
 
 
-def test_inmemory_rate_limiter_blocking():
+def test_rate_limiter_blocking():
     app = FastAPI()
 
     # mount limiter with low quota for test
-    app.add_middleware(InMemoryRateLimiter, requests=2, window=60)
+    app.add_middleware(RateLimiter, requests=2, window=60)
 
     @app.get("/ping")
     async def ping():

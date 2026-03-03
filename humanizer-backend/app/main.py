@@ -5,11 +5,13 @@ from fastapi.responses import HTMLResponse
 from .schemas import TextoInput, HumanizerResponse, ErrorResponse
 from .logic import procesar_humanizacion
 from .middleware import LoggingMiddleware
-from .utils import generar_diff
-from .rate_limiter import InMemoryRateLimiter
-from .redis_rate_limiter import RedisRateLimiter
+from .utils import generar_diff, configure_logging
+from .limiter import RateLimiter
 from .rules import recargar_reglas
-from .config import ALLOWED_ORIGINS, ENV
+from .config import ALLOWED_ORIGINS, ENV, LOG_LEVEL
+
+# Logging
+configure_logging(level=LOG_LEVEL)
 
 app = FastAPI(title="humanizer-backend")
 
@@ -22,14 +24,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Rate limiting: prefer Redis if configured, else in-memory
-from .config import REDIS_URL
-
-# Rate limiting: use RedisRateLimiter when REDIS_URL is configured, else fallback to in-memory
-if REDIS_URL:
-    app.add_middleware(RedisRateLimiter, redis_url=REDIS_URL)
-else:
-    app.add_middleware(InMemoryRateLimiter)
+# Rate limiting
+app.add_middleware(RateLimiter)
 
 # Logging middleware
 app.add_middleware(LoggingMiddleware)

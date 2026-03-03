@@ -52,11 +52,10 @@ Recarga de reglas (solo desarrollo)
 
 Rate limiting
 
-- El servicio incluye un `InMemoryRateLimiter` por IP configurado con las variables de entorno `RATE_LIMIT_REQUESTS` y `RATE_LIMIT_WINDOW` (por defecto 60 requests por 60 segundos). Esto sirve para demo y desarrollo; en producción usa Redis o un API gateway.
-
-Redis-backed limiter
-
-- Si defines `REDIS_URL` en tu `.env` (ej: `redis://localhost:6379/0`) el servicio usará automáticamente `RedisRateLimiter` en vez del in-memory limiter.
+- El servicio usa un componente `RateLimiter` híbrido (`app/limiter.py`).
+- Por defecto usa **In-memory** (Tokens-bucket) para desarrollo local.
+- Si defines `REDIS_URL` en tu `.env`, escala automáticamente a **Redis** para producción.
+- Configurable vía `RATE_LIMIT_REQUESTS` y `RATE_LIMIT_WINDOW`.
 
 Interfaz web
 

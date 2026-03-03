@@ -12,9 +12,8 @@ Monorepo para el proyecto **TheMutation** — plataforma de transformación y hu
 
 | Archivo                                          | Propósito                                      |
 |--------------------------------------------------|------------------------------------------------|
-| [agents.md](agents.md)                           | Definición de agentes del monorepo             |
-| [skills.md](skills.md)                           | Catálogo de habilidades para los agentes       |
-| [humanizer-backend/agents.md](humanizer-backend/agents.md) | Agentes específicos del servicio  |
+| [agents.md](agents.md)                           | Definición ÚNICA de agentes del monorepo       |
+| [skills.md](skills.md)                           | Catálogo de habilidades paramétricas           |
 
 ## Inicio rápido
 
