@@ -1,9 +1,11 @@
-from typing import Tuple, Dict, Any
-from .prompts import PROMPTS_POR_TONO, CONFIG_TONOS
-from .groq_client import call_groq_completion
-from .utils import sanitizar_texto
-from .rules import aplicar_reglas_basicas
+from typing import Any
+
 import textstat
+
+from .groq_client import call_groq_completion
+from .prompts import CONFIG_TONOS, PROMPTS_POR_TONO
+from .rules import aplicar_reglas_basicas
+from .utils import sanitizar_texto
 
 
 def generar_prompt_sistema(tono: str) -> str:
@@ -11,7 +13,7 @@ def generar_prompt_sistema(tono: str) -> str:
     return plantilla
 
 
-def calcular_metricas_texto(texto: str) -> Dict[str, Any]:
+def calcular_metricas_texto(texto: str) -> dict[str, Any]:
     # textstat puede lanzar errores si el texto es extremadamente corto; manejar eso
     try:
         flesch = textstat.flesch_reading_ease(texto)
@@ -39,7 +41,7 @@ def calcular_metricas_texto(texto: str) -> Dict[str, Any]:
     }
 
 
-async def procesar_humanizacion(texto: str, tono: str = "neutral", max_tokens: int | None = None, temperature: float | None = None, top_p: float | None = None, apply_rules: bool = True, rules_probability: float = 1.0, rules_seed: int | None = None) -> Tuple[str, Dict[str, Any], Dict[str, Any]]:
+async def procesar_humanizacion(texto: str, tono: str = "neutral", max_tokens: int | None = None, temperature: float | None = None, top_p: float | None = None, apply_rules: bool = True, rules_probability: float = 1.0, rules_seed: int | None = None) -> tuple[str, dict[str, Any], dict[str, Any]]:
     texto_limpio = sanitizar_texto(texto)
 
     config = CONFIG_TONOS.get(tono, CONFIG_TONOS["neutral"]) if isinstance(tono, str) else CONFIG_TONOS["neutral"]

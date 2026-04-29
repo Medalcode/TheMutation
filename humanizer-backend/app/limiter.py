@@ -1,7 +1,5 @@
-import os
-import time
 import asyncio
-from typing import Dict, Tuple, Optional
+import time
 
 import redis.asyncio as aioredis
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -17,8 +15,8 @@ class RateLimiter(BaseHTTPMiddleware):
         self.requests = requests
         self.window = window
         self.redis_url = REDIS_URL
-        self._redis: Optional[aioredis.Redis] = None
-        self._local_buckets: Dict[str, Tuple[int, float]] = {}
+        self._redis: aioredis.Redis | None = None
+        self._local_buckets: dict[str, tuple[int, float]] = {}
         self._lock = asyncio.Lock()
 
     async def _get_redis(self) -> aioredis.Redis:

@@ -1,8 +1,6 @@
-import time
+from app.limiter import RateLimiter
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
-
-from app.limiter import RateLimiter
 
 
 def test_rate_limiter_blocking():

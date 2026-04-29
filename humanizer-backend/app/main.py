@@ -1,21 +1,19 @@
-from fastapi import FastAPI, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
-from fastapi.responses import HTMLResponse
-from .schemas import TextoInput, HumanizerResponse, ErrorResponse
-from .logic import procesar_humanizacion
 import asyncio
-from .middleware import LoggingMiddleware
-from .utils import generar_diff, configure_logging
-from .limiter import RateLimiter
-from .rules import recargar_reglas
-from .config import ALLOWED_ORIGINS, ENV, LOG_LEVEL
-from .auth import verify_admin
-from fastapi import Depends
+
 import structlog
-from .middleware import request_id_var
-from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
-from fastapi.responses import Response
+from fastapi import Depends, FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse, JSONResponse, Response
+from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
+
+from .auth import verify_admin
+from .config import ALLOWED_ORIGINS, LOG_LEVEL
+from .limiter import RateLimiter
+from .logic import procesar_humanizacion
+from .middleware import LoggingMiddleware, request_id_var
+from .rules import recargar_reglas
+from .schemas import ErrorResponse, HumanizerResponse, TextoInput
+from .utils import configure_logging, generar_diff
 
 # Logging
 configure_logging(level=LOG_LEVEL)

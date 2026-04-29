@@ -3,7 +3,6 @@ import re
 import unicodedata
 from pathlib import Path
 
-
 _REEMPLAZOS_FRASES = [
     ("por otro lado", "por otra parte"),
     ("en conclusion", "en resumen"),

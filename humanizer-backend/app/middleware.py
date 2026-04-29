@@ -1,14 +1,15 @@
-import time
-import json
 import contextvars
+import json
+import time
+
+import structlog
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
-from starlette.responses import Response, JSONResponse
-from .utils import generate_request_id
-from .config import REQUEST_SIZE_LIMIT
-import structlog
+from starlette.responses import JSONResponse, Response
 
+from .config import REQUEST_SIZE_LIMIT
 from .logging_config import configure_logging
+from .utils import generate_request_id
 
 configure_logging()
 
@@ -43,7 +44,7 @@ class LoggingMiddleware(BaseHTTPMiddleware):
         # extract small body safely (only if small)
         tone = None
         try:
-            # Note: request.body() consumes the stream, BaseHTTPMiddleware handles this by re-creating it 
+            # Note: request.body() consumes the stream, BaseHTTPMiddleware handles this by re-creating it
             # if we don't handle it carefully. However, for simplicity in fixing the test:
             body_bytes = await request.body()
             body_len = len(body_bytes or b"")

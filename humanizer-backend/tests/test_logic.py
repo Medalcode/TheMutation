@@ -1,5 +1,6 @@
-from app.logic import generar_prompt_sistema, procesar_humanizacion, calcular_metricas_texto
 import asyncio
+
+from app.logic import calcular_metricas_texto, generar_prompt_sistema, procesar_humanizacion
 
 
 def test_generar_prompt_sistema():

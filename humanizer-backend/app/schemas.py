@@ -1,5 +1,6 @@
 from enum import Enum
-from typing import Optional, Dict, Any
+from typing import Any
+
 from pydantic import BaseModel, Field
 
 
@@ -12,14 +13,14 @@ class ToneEnum(str, Enum):
 
 class TextoInput(BaseModel):
     texto: str = Field(..., min_length=1, max_length=10000)
-    tono: Optional[ToneEnum] = ToneEnum.neutral
-    max_tokens: Optional[int] = Field(None, ge=16, le=4096)
-    temperature: Optional[float] = Field(None, ge=0.0, le=1.0)
-    top_p: Optional[float] = Field(None, ge=0.0, le=1.0)
-    apply_rules: Optional[bool] = Field(True)
-    rules_probability: Optional[float] = Field(1.0, ge=0.0, le=1.0)
-    rules_seed: Optional[int] = None
-    metadata: Optional[Dict[str, Any]] = None
+    tono: ToneEnum | None = ToneEnum.neutral
+    max_tokens: int | None = Field(None, ge=16, le=4096)
+    temperature: float | None = Field(None, ge=0.0, le=1.0)
+    top_p: float | None = Field(None, ge=0.0, le=1.0)
+    apply_rules: bool | None = Field(True)
+    rules_probability: float | None = Field(1.0, ge=0.0, le=1.0)
+    rules_seed: int | None = None
+    metadata: dict[str, Any] | None = None
 
 
 class Metrics(BaseModel):
@@ -34,13 +35,13 @@ class Metrics(BaseModel):
 class HumanizerResponse(BaseModel):
     humanized_text: str
     metrics: Metrics
-    model_metadata: Optional[Dict[str, Any]] = None
+    model_metadata: dict[str, Any] | None = None
     requested_tone: ToneEnum
-    warnings: Optional[list[str]] = None
-    diff: Optional[str] = None
+    warnings: list[str] | None = None
+    diff: str | None = None
 
 
 class ErrorResponse(BaseModel):
     error: str
-    detail: Optional[Dict[str, Any]] = None
-    request_id: Optional[str] = None
+    detail: dict[str, Any] | None = None
+    request_id: str | None = None

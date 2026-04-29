@@ -1,14 +1,13 @@
-import os
-import time
 import asyncio
-from typing import Dict, Any, Tuple
+import time
+from typing import Any
 
 import httpx
 
 from .config import GROQ_API_KEY, GROQ_API_URL
 
 
-def _parse_response_text(resp_json: Dict[str, Any]) -> str:
+def _parse_response_text(resp_json: dict[str, Any]) -> str:
     # Try common completion formats
     try:
         return resp_json["choices"][0]["message"]["content"]
@@ -22,7 +21,7 @@ def _parse_response_text(resp_json: Dict[str, Any]) -> str:
     return str(resp_json)
 
 
-async def call_groq_completion(system_prompt: str, user_prompt: str, max_tokens: int = 512, temperature: float = 0.7, top_p: float = 0.9, retries: int = 3, timeout: int = 20) -> Tuple[str, Dict[str, Any]]:
+async def call_groq_completion(system_prompt: str, user_prompt: str, max_tokens: int = 512, temperature: float = 0.7, top_p: float = 0.9, retries: int = 3, timeout: int = 20) -> tuple[str, dict[str, Any]]:
     """
     Llama al endpoint definido en `GROQ_API_URL` usando `GROQ_API_KEY`.
     Si no existe la clave, retorna una respuesta simulada para desarrollo local.

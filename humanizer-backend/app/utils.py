@@ -1,7 +1,8 @@
+import difflib
+import logging
 import re
 import uuid
-import logging
-import difflib
+
 import structlog
 from structlog.stdlib import LoggerFactory
 
