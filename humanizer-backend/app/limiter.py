@@ -8,7 +8,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 
-from .config import RATE_LIMIT_REQUESTS, RATE_LIMIT_WINDOW, REDIS_URL
+from .config import RATE_LIMIT_REQUESTS, RATE_LIMIT_WINDOW, REDIS_URL, REQUEST_SIZE_LIMIT
 
 
 class RateLimiter(BaseHTTPMiddleware):
@@ -33,9 +33,21 @@ class RateLimiter(BaseHTTPMiddleware):
                 client_ip = request.client.host
         except Exception:
             pass
+        # Enforce request size limit (use Content-Length when provided)
+        try:
+            cl = request.headers.get("content-length")
+            if cl is not None:
+                try:
+                    if int(cl) > REQUEST_SIZE_LIMIT:
+                        return JSONResponse(status_code=413, content={"error": "request_too_large"})
+                except Exception:
+                    pass
+        except Exception:
+            pass
 
+        use_local = False
+        # Try Redis strategy; if Redis fails, degrade to local token-bucket (fail-closed)
         if self.redis_url:
-            # Redis Strategy
             try:
                 client = await self._get_redis()
                 key = f"rl:{client_ip}:{int(time.time() // self.window)}"
@@ -47,22 +59,26 @@ class RateLimiter(BaseHTTPMiddleware):
                     retry_after = ttl if ttl and ttl > 0 else self.window
                     return JSONResponse(status_code=429, content={"error": "rate_limit_exceeded", "retry_after": retry_after})
             except Exception:
-                # Fail open if Redis is down
-                return await call_next(request)
+                # Redis failed — degrade to local enforcement (do not open)
+                use_local = True
         else:
-            # Local Strategy
+            use_local = True
+
+        if use_local:
             now = time.time()
             async with self._lock:
-                tokens, last = self._local_buckets.get(client_ip, (self.requests, now))
+                tokens, last = self._local_buckets.get(client_ip, (float(self.requests), now))
                 elapsed = now - last
-                refill = int(elapsed * (self.requests / self.window))
+                # refill in float tokens per elapsed seconds
+                refill = elapsed * (self.requests / float(self.window))
                 if refill > 0:
-                    tokens = min(self.requests, tokens + refill)
+                    tokens = min(float(self.requests), tokens + refill)
                     last = now
-                if tokens <= 0:
-                    retry_after = int(self.window - (now - last)) if last else self.window
+                if tokens < 1.0:
+                    # calculate retry_after in seconds (approx)
+                    retry_after = int(max(1, (1.0 - tokens) * (self.window / float(self.requests))))
                     return JSONResponse(status_code=429, content={"error": "rate_limit_exceeded", "retry_after": retry_after})
-                tokens -= 1
+                tokens -= 1.0
                 self._local_buckets[client_ip] = (tokens, last)
 
         return await call_next(request)

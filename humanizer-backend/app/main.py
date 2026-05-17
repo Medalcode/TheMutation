@@ -4,11 +4,18 @@ from fastapi.responses import JSONResponse
 from fastapi.responses import HTMLResponse
 from .schemas import TextoInput, HumanizerResponse, ErrorResponse
 from .logic import procesar_humanizacion
+import asyncio
 from .middleware import LoggingMiddleware
 from .utils import generar_diff, configure_logging
 from .limiter import RateLimiter
 from .rules import recargar_reglas
 from .config import ALLOWED_ORIGINS, ENV, LOG_LEVEL
+from .auth import verify_admin
+from fastapi import Depends
+import structlog
+from .middleware import request_id_var
+from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
+from fastapi.responses import Response
 
 # Logging
 configure_logging(level=LOG_LEVEL)
@@ -31,8 +38,8 @@ app.add_middleware(RateLimiter)
 app.add_middleware(LoggingMiddleware)
 
 
-def _build_humanize_response(payload: TextoInput) -> dict:
-    humanized_text, metadata, metrics = procesar_humanizacion(
+async def _build_humanize_response(payload: TextoInput) -> dict:
+    humanized_text, metadata, metrics = await procesar_humanizacion(
         payload.texto,
         tono=payload.tono.value if payload.tono else "neutral",
         max_tokens=payload.max_tokens,
@@ -51,20 +58,30 @@ def _build_humanize_response(payload: TextoInput) -> dict:
     }
 
 
-def _handle_humanize_errors(fn):
+async def _handle_humanize_errors(fn):
     try:
-        return fn()
+        result = fn()
+        if asyncio.iscoroutine(result):
+            return await result
+        return result
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except RuntimeError as e:
         return JSONResponse(status_code=502, content={"error": "provider_error", "detail": {"message": str(e)}})
-    except Exception:
-        return JSONResponse(status_code=500, content={"error": "internal_server_error"})
+    except Exception as exc:
+        # Log exception with request_id and return minimal info for diagnostics
+        try:
+            req_id = request_id_var.get()
+        except Exception:
+            req_id = None
+        logger = structlog.get_logger()
+        logger.error("unhandled.exception", error=str(exc), request_id=req_id, exc_info=True)
+        return JSONResponse(status_code=500, content={"error": "internal_server_error", "request_id": req_id})
 
 
 @app.post("/api/v1/humanize", response_model=HumanizerResponse, responses={400: {"model": ErrorResponse}})
 async def humanize_endpoint(payload: TextoInput):
-    return _handle_humanize_errors(lambda: _build_humanize_response(payload))
+    return await _handle_humanize_errors(lambda: _build_humanize_response(payload))
 
 
 @app.get("/healthz")
@@ -72,10 +89,14 @@ async def healthz():
     return {"status": "ok"}
 
 
+@app.get("/metrics")
+async def metrics():
+    data = generate_latest()
+    return Response(content=data, media_type=CONTENT_TYPE_LATEST)
+
+
 @app.post("/api/v1/admin/reload-rules")
-async def reload_rules():
-    if ENV != "development":
-        raise HTTPException(status_code=404, detail="not_found")
+async def reload_rules(admin=Depends(verify_admin)):
     recargar_reglas()
     return {"status": "ok"}
 
@@ -149,9 +170,9 @@ async def ui():
 
 @app.post("/api/v1/humanize/diff", response_model=HumanizerResponse, responses={400: {"model": ErrorResponse}})
 async def humanize_with_diff(payload: TextoInput):
-    def _build():
-        resp = _build_humanize_response(payload)
+    async def _build():
+        resp = await _build_humanize_response(payload)
         resp["diff"] = generar_diff(payload.texto, resp["humanized_text"])
         return resp
 
-    return _handle_humanize_errors(_build)
+    return await _handle_humanize_errors(_build)
