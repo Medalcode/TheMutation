@@ -1,5 +1,6 @@
 import os
 import time
+import asyncio
 from typing import Dict, Any, Tuple
 
 import httpx
@@ -21,7 +22,7 @@ def _parse_response_text(resp_json: Dict[str, Any]) -> str:
     return str(resp_json)
 
 
-def call_groq_completion(system_prompt: str, user_prompt: str, max_tokens: int = 512, temperature: float = 0.7, top_p: float = 0.9, retries: int = 3, timeout: int = 20) -> Tuple[str, Dict[str, Any]]:
+async def call_groq_completion(system_prompt: str, user_prompt: str, max_tokens: int = 512, temperature: float = 0.7, top_p: float = 0.9, retries: int = 3, timeout: int = 20) -> Tuple[str, Dict[str, Any]]:
     """
     Llama al endpoint definido en `GROQ_API_URL` usando `GROQ_API_KEY`.
     Si no existe la clave, retorna una respuesta simulada para desarrollo local.
@@ -58,8 +59,8 @@ def call_groq_completion(system_prompt: str, user_prompt: str, max_tokens: int =
     last_exc = None
     for attempt in range(1, retries + 1):
         try:
-            with httpx.Client(timeout=httpx.Timeout(timeout)) as client:
-                resp = client.post(url, json=payload, headers=headers)
+            async with httpx.AsyncClient(timeout=httpx.Timeout(timeout)) as client:
+                resp = await client.post(url, json=payload, headers=headers)
             duration_ms = int((time.time() - start) * 1000)
             if resp.status_code == 200:
                 try:
@@ -96,9 +97,9 @@ def call_groq_completion(system_prompt: str, user_prompt: str, max_tokens: int =
         except httpx.RequestError as exc:
             last_exc = exc
 
-        # backoff
+        # async backoff
         backoff = 1 * (2 ** (attempt - 1))
-        time.sleep(backoff)
+        await asyncio.sleep(backoff)
 
     # if we exit loop, raise last exception
     raise RuntimeError(f"Failed to call Groq after {retries} attempts: {last_exc}")

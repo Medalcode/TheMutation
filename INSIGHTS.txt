@@ -1,0 +1,64 @@
+INSIGHTS - TheMutation / humanizer-backend
+Fecha: 2026-05-16
+
+1) Resumen general
+- Repositorio: monorepo con servicio principal `humanizer-backend` (FastAPI).
+- Estructura clara: código en `app/`, tests en `tests/`, documentación básica en `README.md`.
+
+2) Organización y estructura
+- Bien organizada: separación de responsabilidades (prompts, reglas, client del proveedor).
+- Falta metadata reproducible: no existe `pyproject.toml` ni lockfile que fije versión de Python y dependencias para despliegues reproducibles.
+
+3) Dependencias y entorno
+- `requirements.txt` con versiones fijadas — positivo.
+- No hay `requirements.lock`/`poetry.lock` ni declaración explícita de la versión mínima de Python (usar >=3.10 requerido por anotaciones `|`).
+- Recomendación: añadir `pyproject.toml` o `poetry`/`pip-tools` y generar lockfile.
+
+4) Calidad de código y convenciones
+- Uso de `pydantic` y modularidad correcta.
+- Tipado moderno (operador `|`) implica requisito de Python 3.10+; documentarlo.
+- Manejo de errores genérico: `_handle_humanize_errors` atrapa Exception y retorna 500 sin log/contexto ni `request_id`. Loggear excepciones con `structlog` y devolver `request_id` para diagnóstico.
+- `calcular_metricas_texto` usa tokenización/simple heurística; documentar limitaciones o mejorar con regex/librería ligera.
+- UI inline en `main.py`: ok para prototipo, mover a `static/` o plantillas si crece.
+
+5) Tests
+- Existen tests básicos (`test_logic.py`, `test_api.py`, `test_rate_limiter.py`): buen inicio.
+- Mejora: mockear llamadas externas (`call_groq_completion`) para tests deterministas y añadir pruebas de casos de error y límites (texto vacío, parámetros fuera de rango).
+- Recomendación: añadir cobertura mínima objetivo y reportarla en CI.
+
+6) CI / DevOps
+- No se detectó pipeline CI (no hay `.github/workflows`).
+- Recomendación prioritaria: añadir GitHub Actions con pasos: instalar dependencias, ejecutar linters (`ruff`/`flake8`), formateo (`black`), typecheck (`mypy`), tests (`pytest`).
+- Dockerfile/Makefile presentes: revisar multi-stage, uso de usuario no root y tamaño final de imagen.
+
+7) Seguridad
+- Gestión de secretos vía `.env` documentada; asegurar que no hay secrets en repo y añadir comprobación en CI (secret-scanning).
+- Redis/Rate limiter: patrón correcto; validar configuración segura en producción.
+
+8) Observabilidad
+- `structlog` y `prometheus_client` en dependencias: buena base.
+- No se observa exposición de métricas `/metrics` en `main.py`; considerar añadirla.
+- Asegurar que logs incluyen contexto (request id, tono, duración).
+
+9) Problemas concretos y detalles menores
+- `_handle_humanize_errors` devuelve JSONResponse inconsistente respecto a `response_model` de endpoints.
+- `ALLOWED_ORIGINS` se parsea con `split(";")` sin `strip()`; posibles espacios vacíos.
+- `humanizer-backend/ui` fetch pide `/api/v1/humanize/diff` pero no gestiona validaciones avanzadas; ok para prototipo.
+
+10) Recomendaciones prioritarias (acciones sugeridas)
+- Añadir CI (GitHub Actions) que ejecute: instalar deps, linters, format, typecheck, tests. (Alta prioridad)
+- Añadir `pyproject.toml` y lockfile; declarar versión mínima de Python. (Alta)
+- Mejorar logging y manejo de errores: incluir logs de excepción y `request_id`. (Alta)
+- Mockear proveedor en tests y expandir casos de prueba (errores del proveedor, límites). (Media)
+- Integrar pre-commit con `black`, `ruff` y reglas de commit. (Media)
+- Revisar Dockerfile para multi-stage y seguridad. (Media)
+- Añadir endpoint de métricas y documentación de observabilidad. (Baja)
+
+11) Próximos pasos sugeridos
+- Implementar CI + tests y asegurar que el pipeline pasa.
+- Crear `pyproject.toml` mínimo y `mypy`/`ruff` config y correr localmente.
+- Si quieres, puedo: (a) añadir workflow de GitHub Actions, (b) generar `pyproject.toml` y config de linters, o (c) preparar cambios de logging y manejo de errores.
+
+---
+Generado por revisión rápida del repositorio `TheMutation` (servicio `humanizer-backend`).
+Si quieres, implemento cualquiera de las recomendaciones priorizadas y añado pruebas que verifiquen los cambios.

@@ -3,8 +3,9 @@ import json
 import contextvars
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
-from starlette.responses import Response
+from starlette.responses import Response, JSONResponse
 from .utils import generate_request_id
+from .config import REQUEST_SIZE_LIMIT
 import structlog
 
 from .logging_config import configure_logging
@@ -35,11 +36,20 @@ class LoggingMiddleware(BaseHTTPMiddleware):
         request_id_var.set(req_id)
         start = time.time()
 
+        content_length = request.headers.get("content-length")
+        if content_length and int(content_length) > REQUEST_SIZE_LIMIT:
+             return JSONResponse(status_code=413, content={"error": "request_too_large"})
+
         # extract small body safely (only if small)
         tone = None
         try:
+            # Note: request.body() consumes the stream, BaseHTTPMiddleware handles this by re-creating it 
+            # if we don't handle it carefully. However, for simplicity in fixing the test:
             body_bytes = await request.body()
             body_len = len(body_bytes or b"")
+            if body_len > REQUEST_SIZE_LIMIT:
+                 return JSONResponse(status_code=413, content={"error": "request_too_large"})
+
             if body_len and body_len < 2000:
                 try:
                     body_json = json.loads(body_bytes.decode("utf-8"))

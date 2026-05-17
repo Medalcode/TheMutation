@@ -1,4 +1,5 @@
 from app.logic import generar_prompt_sistema, procesar_humanizacion, calcular_metricas_texto
+import asyncio
 
 
 def test_generar_prompt_sistema():
@@ -9,7 +10,7 @@ def test_generar_prompt_sistema():
 
 def test_procesar_humanizacion_simulado():
     texto = "Se implementó una optimización en el pipeline de datos."
-    humanized_text, metadata, metrics = procesar_humanizacion(texto, tono="tecnico")
+    humanized_text, metadata, metrics = asyncio.run(procesar_humanizacion(texto, tono="tecnico"))
     assert isinstance(humanized_text, str)
     assert metadata.get("provider") in ("simulated", "groq")
     assert "SIMULATED" in humanized_text.upper() or len(humanized_text) > 0

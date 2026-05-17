@@ -39,7 +39,7 @@ def calcular_metricas_texto(texto: str) -> Dict[str, Any]:
     }
 
 
-def procesar_humanizacion(texto: str, tono: str = "neutral", max_tokens: int | None = None, temperature: float | None = None, top_p: float | None = None, apply_rules: bool = True, rules_probability: float = 1.0, rules_seed: int | None = None) -> Tuple[str, Dict[str, Any], Dict[str, Any]]:
+async def procesar_humanizacion(texto: str, tono: str = "neutral", max_tokens: int | None = None, temperature: float | None = None, top_p: float | None = None, apply_rules: bool = True, rules_probability: float = 1.0, rules_seed: int | None = None) -> Tuple[str, Dict[str, Any], Dict[str, Any]]:
     texto_limpio = sanitizar_texto(texto)
 
     config = CONFIG_TONOS.get(tono, CONFIG_TONOS["neutral"]) if isinstance(tono, str) else CONFIG_TONOS["neutral"]
@@ -51,7 +51,7 @@ def procesar_humanizacion(texto: str, tono: str = "neutral", max_tokens: int | N
     user_prompt = system_prompt.replace("{texto}", texto_limpio)
 
     # Call provider (simulated if no API key)
-    humanized_text, metadata = call_groq_completion(system_prompt=system_prompt, user_prompt=user_prompt, max_tokens=max_toks, temperature=temp, top_p=tp)
+    humanized_text, metadata = await call_groq_completion(system_prompt=system_prompt, user_prompt=user_prompt, max_tokens=max_toks, temperature=temp, top_p=tp)
 
     if apply_rules:
         humanized_text = aplicar_reglas_basicas(humanized_text, probability=rules_probability, seed=rules_seed)
