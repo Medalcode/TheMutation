@@ -24,7 +24,8 @@ def calcular_metricas_texto(texto: str) -> dict[str, Any]:
         fk = 0.0
         gunning = 0.0
 
-    sentences = max(1, len([s for s in texto.split('.') if s.strip() != '']))
+    import re
+    sentences = max(1, len([s for s in re.split(r'[.!?]+', texto) if s.strip() != '']))
     words = max(0, len(texto.split()))
     avg = float(words) / sentences if sentences else float(words)
     # simplistic complex words percent: words longer than 6 chars

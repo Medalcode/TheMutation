@@ -10,7 +10,7 @@ Comandos útiles:
 # crear entorno e instalar dependencias
 python -m venv .venv
 . .venv/bin/activate
-pip install -r requirements.txt
+pip install -e ".[dev]"
 
 # ejecutar en desarrollo
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8000

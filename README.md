@@ -12,8 +12,7 @@ Estructura relevante
 - `humanizer-backend/` — servicio principal
 	- `app/` — código fuente (rutas, lógica, clientes, middlewares)
 	- `tests/` — pruebas unitarias y de integración
-	- `requirements.txt` — dependencias
-	- `constraints.txt` — versiones fijadas para instalaciones reproducibles
+	- `pyproject.toml` — configuración y dependencias modernas
 	- `Dockerfile` — imagen multi-stage lista para producción
 
 Inicio rápido (local)
@@ -22,7 +21,7 @@ Inicio rápido (local)
 cd humanizer-backend
 python -m venv .venv
 source .venv/bin/activate
-pip install -r requirements.txt -c constraints.txt
+pip install -e ".[dev]"
 ./venv/bin/python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
@@ -79,8 +78,7 @@ Seguridad y observabilidad
 Notas operativas y recomendaciones
 
 - Añadir `ADMIN_API_KEY` en el entorno de producción y asegurar `REDIS_URL` con ACLs.
-- Actualizar `constraints.txt` periódicamente y ejecutar `pip-audit` en pipelines.
-- Considerar añadir `pyproject.toml` y configuración de linters (`ruff`, `black`, `mypy`).
+- Asegurar que `pyproject.toml` se mantiene actualizado y ejecutar linters (`ruff`, `mypy`) en CI.
 
 Contacto
 

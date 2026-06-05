@@ -70,7 +70,7 @@ async def _handle_humanize_errors(fn):
         # Log exception with request_id and return minimal info for diagnostics
         try:
             req_id = request_id_var.get()
-        except Exception:
+        except LookupError:
             req_id = None
         logger = structlog.get_logger()
         logger.error("unhandled.exception", error=str(exc), request_id=req_id, exc_info=True)

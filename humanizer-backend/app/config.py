@@ -7,7 +7,7 @@ load_dotenv()
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 GROQ_API_URL = os.getenv("GROQ_API_URL")
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
-ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000").split(";")
+ALLOWED_ORIGINS = [o.strip() for o in os.getenv("ALLOWED_ORIGINS", "http://localhost:3000").split(";") if o.strip()]
 ENV = os.getenv("ENV", "development")
 REQUEST_SIZE_LIMIT = int(os.getenv("REQUEST_SIZE_LIMIT", "1048576"))
 REDIS_URL = os.getenv("REDIS_URL")
