@@ -3,8 +3,8 @@ FROM python:3.11-slim AS builder
 WORKDIR /app
 
 # Install build dependencies and runtime packages
-COPY requirements.txt .
-RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
+COPY pyproject.toml .
+RUN pip install --no-cache-dir --prefix=/install -e ".[dev]"
 
 FROM python:3.11-slim
 

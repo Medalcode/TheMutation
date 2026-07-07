@@ -1,6 +1,7 @@
 import asyncio
 
 import pytest
+
 from app import groq_client, limiter
 
 
@@ -66,8 +67,9 @@ def test_rate_limiter_degrades_to_local(monkeypatch):
 
 
 def test_request_too_large(monkeypatch):
-    from app.main import app
     from fastapi.testclient import TestClient
+
+    from app.main import app
 
     # Make the REQUEST_SIZE_LIMIT small for test (patch limiter module import)
     monkeypatch.setattr(limiter, "REQUEST_SIZE_LIMIT", 10)

@@ -89,6 +89,7 @@ class LoggingMiddleware(BaseHTTPMiddleware):
             "duration_ms": duration_ms,
             "query": query,
             "tone": tone,
+            "headers": headers,
         }
 
         logger.info("request.completed", **log_data)

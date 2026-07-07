@@ -18,11 +18,9 @@ def calcular_metricas_texto(texto: str) -> dict[str, Any]:
     try:
         flesch = textstat.flesch_reading_ease(texto)
         fk = textstat.flesch_kincaid_grade(texto)
-        gunning = textstat.gunning_fog(texto)
     except Exception:
         flesch = 0.0
         fk = 0.0
-        gunning = 0.0
 
     import re
     sentences = max(1, len([s for s in re.split(r'[.!?]+', texto) if s.strip() != '']))
