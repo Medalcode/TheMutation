@@ -4,28 +4,43 @@ from typing import Any
 
 import httpx
 
-from .config import GROQ_API_KEY, GROQ_API_URL
+from .config import GROQ_API_KEY, GROQ_API_URL, GROQ_MODEL
+
+_shared_client: httpx.AsyncClient | None = None
+
+
+def set_global_client(client: httpx.AsyncClient | None) -> None:
+    global _shared_client
+    _shared_client = client
 
 
 def _parse_response_text(resp_json: dict[str, Any]) -> str:
     # Try common completion formats
     try:
         return resp_json["choices"][0]["message"]["content"]
-    except Exception:
+    except (KeyError, IndexError, TypeError):
         pass
     try:
         return resp_json["choices"][0]["text"]
-    except Exception:
+    except (KeyError, IndexError, TypeError):
         pass
     # Fallback: stringify
     return str(resp_json)
 
 
-async def call_groq_completion(system_prompt: str, user_prompt: str, max_tokens: int = 512, temperature: float = 0.7, top_p: float = 0.9, retries: int = 3, timeout: int = 20) -> tuple[str, dict[str, Any]]:
-    """
-    Llama al endpoint definido en `GROQ_API_URL` usando `GROQ_API_KEY`.
-    Si no existe la clave, retorna una respuesta simulada para desarrollo local.
+async def call_groq_completion(
+    system_prompt: str,
+    user_prompt: str,
+    max_tokens: int = 512,
+    temperature: float = 0.7,
+    top_p: float = 0.9,
+    retries: int = 3,
+    timeout: int = 20,
+    client: httpx.AsyncClient | None = None,
+) -> tuple[str, dict[str, Any]]:
+    """Llama al endpoint definido en `GROQ_API_URL` usando `GROQ_API_KEY`.
 
+    Si no existe la clave, retorna una respuesta simulada para desarrollo local.
     Devuelve (texto, metadata).
     """
     start = time.time()
@@ -44,7 +59,7 @@ async def call_groq_completion(system_prompt: str, user_prompt: str, max_tokens:
     headers = {"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json"}
 
     payload = {
-        "model": "llama-3.1-70b-versatile",
+        "model": GROQ_MODEL,
         "messages": [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt},
@@ -54,52 +69,47 @@ async def call_groq_completion(system_prompt: str, user_prompt: str, max_tokens:
         "max_tokens": max_tokens,
     }
 
-    attempt = 0
-    last_exc = None
-    for attempt in range(1, retries + 1):
-        try:
-            async with httpx.AsyncClient(timeout=httpx.Timeout(timeout)) as client:
-                resp = await client.post(url, json=payload, headers=headers)
-            duration_ms = int((time.time() - start) * 1000)
-            if resp.status_code == 200:
-                try:
-                    data = resp.json()
-                except Exception:
-                    data = {"raw_text": resp.text}
-                text = _parse_response_text(data)
-                metadata = {
-                    "provider": "groq",
-                    "status_code": resp.status_code,
-                    "duration_ms": duration_ms,
-                    "attempts": attempt,
-                }
-                return text, metadata
-            elif 500 <= resp.status_code < 600:
-                # server error - retry
-                last_exc = RuntimeError(f"provider error {resp.status_code}")
-            else:
-                # client error or other - do not retry
+    last_exc: Exception | None = None
+    http_client = client or _shared_client
+    should_close = False
+
+    if http_client is None:
+        http_client = httpx.AsyncClient(timeout=httpx.Timeout(timeout))
+        should_close = True
+
+    try:
+        for attempt in range(1, retries + 1):
+            try:
+                resp = await http_client.post(url, json=payload, headers=headers)
                 duration_ms = int((time.time() - start) * 1000)
-                try:
-                    data = resp.json()
-                except Exception:
-                    data = {"raw_text": resp.text}
-                text = _parse_response_text(data)
-                metadata = {
-                    "provider": "groq",
-                    "status_code": resp.status_code,
-                    "duration_ms": duration_ms,
-                    "attempts": attempt,
-                }
-                # return what provider returned even if non-200
-                return text, metadata
-        except httpx.RequestError as exc:
-            last_exc = exc
+                if resp.status_code == 200:
+                    try:
+                        data = resp.json()
+                    except ValueError:
+                        data = {"raw_text": resp.text}
+                    text = _parse_response_text(data)
+                    metadata = {
+                        "provider": "groq",
+                        "status_code": resp.status_code,
+                        "duration_ms": duration_ms,
+                        "model": GROQ_MODEL,
+                        "attempts": attempt,
+                    }
+                    return text, metadata
+                if 500 <= resp.status_code < 600 or resp.status_code == 429:
+                    # server error o rate limit — reintentar
+                    last_exc = RuntimeError(f"provider error {resp.status_code}")
+                else:
+                    # client error no reintentable
+                    raise RuntimeError(f"provider client error {resp.status_code}: {resp.text[:200]}")
+            except httpx.RequestError as exc:
+                last_exc = exc
 
-        # async backoff
-        backoff = 1 * (2 ** (attempt - 1))
-        await asyncio.sleep(backoff)
+            # backoff exponencial solo si queda un intento posterior
+            if attempt < retries:
+                await asyncio.sleep(2 ** (attempt - 1))
 
-    # if we exit loop, raise last exception
-    raise RuntimeError(f"Failed to call Groq after {retries} attempts: {last_exc}")
-
+        raise RuntimeError(f"Failed to call Groq after {retries} attempts: {last_exc}")
+    finally:
+        if should_close and http_client is not None and hasattr(http_client, "aclose"):
+            await http_client.aclose()

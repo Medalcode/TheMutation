@@ -1,13 +1,18 @@
-import asyncio
+import time
+from contextlib import asynccontextmanager
+from functools import lru_cache
+from pathlib import Path
 
+import httpx
 import structlog
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse, Response
-from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
+from prometheus_client import CONTENT_TYPE_LATEST, Counter, Histogram, generate_latest
 
 from .auth import verify_admin
 from .config import ALLOWED_ORIGINS, LOG_LEVEL
+from .groq_client import set_global_client
 from .limiter import RateLimiter
 from .logic import procesar_humanizacion
 from .middleware import LoggingMiddleware, request_id_var
@@ -17,8 +22,31 @@ from .utils import configure_logging, generar_diff
 
 # Logging
 configure_logging(level=LOG_LEVEL)
+logger = structlog.get_logger()
 
-app = FastAPI(title="humanizer-backend")
+# Metricas Prometheus
+HUMANIZE_REQUESTS = Counter(
+    "humanize_requests_total",
+    "Total de peticiones procesadas",
+    ["tone", "status"],
+)
+PROVIDER_LATENCY = Histogram(
+    "groq_provider_latency_seconds",
+    "Latencia del proveedor LLM en segundos",
+    ["provider"],
+)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Inicialización del cliente HTTP compartido para todas las solicitudes
+    async with httpx.AsyncClient(timeout=httpx.Timeout(20.0)) as client:
+        set_global_client(client)
+        yield
+    set_global_client(None)
+
+
+app = FastAPI(title="humanizer-backend", lifespan=lifespan)
 
 # CORS
 app.add_middleware(
@@ -36,50 +64,61 @@ app.add_middleware(RateLimiter)
 app.add_middleware(LoggingMiddleware)
 
 
-async def _build_humanize_response(payload: TextoInput) -> dict:
-    humanized_text, metadata, metrics = await procesar_humanizacion(
-        payload.texto,
-        tono=payload.tono.value if payload.tono else "neutral",
-        max_tokens=payload.max_tokens,
-        temperature=payload.temperature,
-        top_p=payload.top_p,
-        apply_rules=bool(payload.apply_rules),
-        rules_probability=float(payload.rules_probability) if payload.rules_probability is not None else 1.0,
-        rules_seed=payload.rules_seed,
-    )
-    return {
-        "humanized_text": humanized_text,
-        "metrics": metrics,
-        "model_metadata": metadata,
-        "requested_tone": payload.tono or "neutral",
-        "warnings": None,
-    }
+# Manejo de errores centralizado: los endpoints solo implementan el camino feliz
+# y las excepciones se traducen aquí a respuestas HTTP consistentes.
+@app.exception_handler(ValueError)
+async def value_error_handler(request: Request, exc: ValueError):
+    return JSONResponse(status_code=400, content={"detail": str(exc)})
 
 
-async def _handle_humanize_errors(fn):
+@app.exception_handler(RuntimeError)
+async def runtime_error_handler(request: Request, exc: RuntimeError):
+    return JSONResponse(status_code=502, content={"error": "provider_error", "detail": {"message": str(exc)}})
+
+
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception):
     try:
-        result = fn()
-        if asyncio.iscoroutine(result):
-            return await result
-        return result
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except RuntimeError as e:
-        return JSONResponse(status_code=502, content={"error": "provider_error", "detail": {"message": str(e)}})
-    except Exception as exc:
-        # Log exception with request_id and return minimal info for diagnostics
-        try:
-            req_id = request_id_var.get()
-        except LookupError:
-            req_id = None
-        logger = structlog.get_logger()
-        logger.error("unhandled.exception", error=str(exc), request_id=req_id, exc_info=True)
-        return JSONResponse(status_code=500, content={"error": "internal_server_error", "request_id": req_id})
+        req_id = request_id_var.get() or None
+    except LookupError:
+        req_id = None
+    logger.error("unhandled.exception", error=str(exc), request_id=req_id, exc_info=True)
+    return JSONResponse(status_code=500, content={"error": "internal_server_error", "request_id": req_id})
+
+
+async def _build_humanize_response(payload: TextoInput) -> dict:
+    start_time = time.time()
+    tone_str = payload.tono.value if payload.tono else "neutral"
+    try:
+        humanized_text, metadata, metrics = await procesar_humanizacion(
+            payload.texto,
+            tono=tone_str,
+            max_tokens=payload.max_tokens,
+            temperature=payload.temperature,
+            top_p=payload.top_p,
+            apply_rules=bool(payload.apply_rules),
+            rules_probability=float(payload.rules_probability) if payload.rules_probability is not None else 1.0,
+            rules_seed=payload.rules_seed,
+        )
+        duration = time.time() - start_time
+        PROVIDER_LATENCY.labels(provider=metadata.get("provider", "unknown")).observe(duration)
+        HUMANIZE_REQUESTS.labels(tone=tone_str, status="success").inc()
+
+        return {
+            "humanized_text": humanized_text,
+            "metrics": metrics,
+            "model_metadata": metadata,
+            "requested_tone": payload.tono or "neutral",
+            "warnings": None,
+        }
+    except Exception:
+        HUMANIZE_REQUESTS.labels(tone=tone_str, status="error").inc()
+        raise
 
 
 @app.post("/api/v1/humanize", response_model=HumanizerResponse, responses={400: {"model": ErrorResponse}})
 async def humanize_endpoint(payload: TextoInput):
-    return await _handle_humanize_errors(lambda: _build_humanize_response(payload))
+    return await _build_humanize_response(payload)
 
 
 @app.get("/healthz")
@@ -99,78 +138,21 @@ async def reload_rules(admin=Depends(verify_admin)):
     return {"status": "ok"}
 
 
+_UI_PATH = Path(__file__).resolve().parent / "static" / "ui.html"
+
+
+@lru_cache(maxsize=1)
+def _load_ui() -> str:
+    return _UI_PATH.read_text(encoding="utf-8")
+
+
 @app.get("/ui", response_class=HTMLResponse)
 async def ui():
-        html = """
-        <!doctype html>
-        <html>
-        <head>
-            <meta charset="utf-8" />
-            <title>Humanizer UI</title>
-            <style>
-                body { font-family: Arial, sans-serif; margin: 24px; }
-                textarea { width: 100%; height: 200px; }
-                pre { background:#f6f8fa; padding:12px; white-space:pre-wrap; }
-                .col { display:flex; gap:12px; }
-                .col > div { flex:1 }
-            </style>
-        </head>
-        <body>
-            <h1>Humanizer - UI</h1>
-            <label for="tono">Tono:</label>
-            <select id="tono">
-                <option value="tecnico">Técnico</option>
-                <option value="ejecutivo">Ejecutivo</option>
-                <option value="academico">Académico</option>
-            </select>
-
-            <p/>
-            <textarea id="inputTexto" placeholder="Pega aquí el texto generado por IA..."></textarea>
-            <p/>
-            <button id="procesar">Procesar</button>
-
-            <h2>Resultado</h2>
-            <div class="col">
-                <div>
-                    <h3>Humanizado</h3>
-                    <pre id="resultado">(aún sin procesar)</pre>
-                </div>
-                <div>
-                    <h3>Diff</h3>
-                    <pre id="diff">(aún sin procesar)</pre>
-                </div>
-            </div>
-
-            <script>
-                document.getElementById('procesar').addEventListener('click', async () => {
-                    const texto = document.getElementById('inputTexto').value;
-                    const tono = document.getElementById('tono').value;
-                    const res = await fetch('/api/v1/humanize/diff', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ texto: texto, tono: tono })
-                    });
-                    if (!res.ok) {
-                        const t = await res.text();
-                        alert('Error: ' + res.status + '\n' + t);
-                        return;
-                    }
-                    const data = await res.json();
-                    document.getElementById('resultado').innerText = data.humanized_text || '';
-                    document.getElementById('diff').innerText = data.diff || '';
-                });
-            </script>
-        </body>
-        </html>
-        """
-        return HTMLResponse(content=html)
+    return HTMLResponse(content=_load_ui())
 
 
 @app.post("/api/v1/humanize/diff", response_model=HumanizerResponse, responses={400: {"model": ErrorResponse}})
 async def humanize_with_diff(payload: TextoInput):
-    async def _build():
-        resp = await _build_humanize_response(payload)
-        resp["diff"] = generar_diff(payload.texto, resp["humanized_text"])
-        return resp
-
-    return await _handle_humanize_errors(_build)
+    resp = await _build_humanize_response(payload)
+    resp["diff"] = generar_diff(payload.texto, resp["humanized_text"])
+    return resp

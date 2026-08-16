@@ -30,9 +30,7 @@ def _preservar_mayuscula(original: str, reemplazo: str) -> str:
 
 
 def _normalizar(texto: str) -> str:
-    return "".join(
-        ch for ch in unicodedata.normalize("NFD", texto) if not unicodedata.combining(ch)
-    )
+    return "".join(ch for ch in unicodedata.normalize("NFD", texto) if not unicodedata.combining(ch))
 
 
 def _normalizar_con_mapa(texto: str) -> tuple[str, list[int]]:
@@ -47,16 +45,11 @@ def _normalizar_con_mapa(texto: str) -> tuple[str, list[int]]:
     return "".join(normalizado), mapa
 
 
-def _reemplazar_frase(texto: str, frase: str, reemplazo: str) -> str:
-    if not texto or not frase:
+def _reemplazar_frase_con_patron(texto: str, frase_norm: str, patron: re.Pattern, reemplazo: str) -> str:
+    if not texto or not frase_norm or not patron:
         return texto
 
     texto_norm, mapa = _normalizar_con_mapa(texto)
-    frase_norm = _normalizar(frase)
-    if not frase_norm:
-        return texto
-
-    patron = re.compile(rf"(?i)\b{re.escape(frase_norm)}\b")
     coincidencias = list(patron.finditer(texto_norm))
     if not coincidencias:
         return texto
@@ -69,6 +62,24 @@ def _reemplazar_frase(texto: str, frase: str, reemplazo: str) -> str:
         reemplazo_final = _preservar_mayuscula(original, reemplazo)
         resultado = resultado[:inicio_orig] + reemplazo_final + resultado[fin_orig:]
     return resultado
+
+
+def _reemplazar_frase(texto: str, frase: str, reemplazo: str) -> str:
+    frase_norm = _normalizar(frase)
+    if not frase_norm:
+        return texto
+    patron = re.compile(rf"(?i)\b{re.escape(frase_norm)}\b")
+    return _reemplazar_frase_con_patron(texto, frase_norm, patron, reemplazo)
+
+
+def _precompilar_reglas(pares: list[tuple[str, str]]) -> list[tuple[str, re.Pattern, str]]:
+    compiladas = []
+    for frase, reemplazo in pares:
+        frase_norm = _normalizar(frase)
+        if frase_norm:
+            patron = re.compile(rf"(?i)\b{re.escape(frase_norm)}\b")
+            compiladas.append((frase_norm, patron, reemplazo))
+    return compiladas
 
 
 def _cargar_reemplazos(path: Path) -> list[tuple[str, str]]:
@@ -87,14 +98,19 @@ def _cargar_reemplazos(path: Path) -> list[tuple[str, str]]:
     return pares
 
 
-_FRASES_CACHE = _cargar_reemplazos(_FRASES_FILE) or _REEMPLAZOS_FRASES
-_PALABRAS_CACHE = _cargar_reemplazos(_PALABRAS_FILE) or _REEMPLAZOS_PALABRAS
+_FRASES_RAW = _cargar_reemplazos(_FRASES_FILE) or _REEMPLAZOS_FRASES
+_PALABRAS_RAW = _cargar_reemplazos(_PALABRAS_FILE) or _REEMPLAZOS_PALABRAS
+
+_FRASES_CACHE = _precompilar_reglas(_FRASES_RAW)
+_PALABRAS_CACHE = _precompilar_reglas(_PALABRAS_RAW)
 
 
 def recargar_reglas() -> None:
     global _FRASES_CACHE, _PALABRAS_CACHE
-    _FRASES_CACHE = _cargar_reemplazos(_FRASES_FILE) or _REEMPLAZOS_FRASES
-    _PALABRAS_CACHE = _cargar_reemplazos(_PALABRAS_FILE) or _REEMPLAZOS_PALABRAS
+    frases_raw = _cargar_reemplazos(_FRASES_FILE) or _REEMPLAZOS_FRASES
+    palabras_raw = _cargar_reemplazos(_PALABRAS_FILE) or _REEMPLAZOS_PALABRAS
+    _FRASES_CACHE = _precompilar_reglas(frases_raw)
+    _PALABRAS_CACHE = _precompilar_reglas(palabras_raw)
 
 
 def aplicar_reglas_basicas(texto: str, probability: float = 1.0, seed: int | None = None) -> str:
@@ -103,17 +119,19 @@ def aplicar_reglas_basicas(texto: str, probability: float = 1.0, seed: int | Non
     if probability <= 0.0:
         return texto
 
-    rng = random.Random(seed) if seed is not None else random
+    # Instancia propia: con seed reproducible, sin seed auto-seedeada; evita
+    # compartir el estado global del módulo random entre requests concurrentes
+    rng = random.Random(seed)
     frases = _FRASES_CACHE
     palabras = _PALABRAS_CACHE
 
     resultado = texto
-    for frase, reemplazo in frases:
+    for frase_norm, patron, reemplazo in frases:
         if rng.random() <= probability:
-            resultado = _reemplazar_frase(resultado, frase, reemplazo)
+            resultado = _reemplazar_frase_con_patron(resultado, frase_norm, patron, reemplazo)
 
-    for palabra, reemplazo in palabras:
+    for palabra_norm, patron, reemplazo in palabras:
         if rng.random() <= probability:
-            resultado = _reemplazar_frase(resultado, palabra, reemplazo)
+            resultado = _reemplazar_frase_con_patron(resultado, palabra_norm, patron, reemplazo)
 
     return resultado

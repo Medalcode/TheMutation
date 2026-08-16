@@ -1,3 +1,5 @@
+import asyncio
+import re
 from typing import Any
 
 import textstat
@@ -22,8 +24,7 @@ def calcular_metricas_texto(texto: str) -> dict[str, Any]:
         flesch = 0.0
         fk = 0.0
 
-    import re
-    sentences = max(1, len([s for s in re.split(r'[.!?]+', texto) if s.strip() != '']))
+    sentences = max(1, len([s for s in re.split(r"[.!?]+", texto) if s.strip() != ""]))
     words = max(0, len(texto.split()))
     avg = float(words) / sentences if sentences else float(words)
     # simplistic complex words percent: words longer than 6 chars
@@ -40,7 +41,16 @@ def calcular_metricas_texto(texto: str) -> dict[str, Any]:
     }
 
 
-async def procesar_humanizacion(texto: str, tono: str = "neutral", max_tokens: int | None = None, temperature: float | None = None, top_p: float | None = None, apply_rules: bool = True, rules_probability: float = 1.0, rules_seed: int | None = None) -> tuple[str, dict[str, Any], dict[str, Any]]:
+async def procesar_humanizacion(
+    texto: str,
+    tono: str = "neutral",
+    max_tokens: int | None = None,
+    temperature: float | None = None,
+    top_p: float | None = None,
+    apply_rules: bool = True,
+    rules_probability: float = 1.0,
+    rules_seed: int | None = None,
+) -> tuple[str, dict[str, Any], dict[str, Any]]:
     texto_limpio = sanitizar_texto(texto)
 
     config = CONFIG_TONOS.get(tono, CONFIG_TONOS["neutral"]) if isinstance(tono, str) else CONFIG_TONOS["neutral"]
@@ -49,13 +59,21 @@ async def procesar_humanizacion(texto: str, tono: str = "neutral", max_tokens: i
     tp = top_p if top_p is not None else config.get("top_p")
 
     system_prompt = generar_prompt_sistema(tono)
-    user_prompt = system_prompt.replace("{texto}", texto_limpio)
+    user_prompt = texto_limpio
 
     # Call provider (simulated if no API key)
-    humanized_text, metadata = await call_groq_completion(system_prompt=system_prompt, user_prompt=user_prompt, max_tokens=max_toks, temperature=temp, top_p=tp)
+    humanized_text, metadata = await call_groq_completion(
+        system_prompt=system_prompt,
+        user_prompt=user_prompt,
+        max_tokens=max_toks,
+        temperature=temp,
+        top_p=tp,
+    )
 
     if apply_rules:
-        humanized_text = aplicar_reglas_basicas(humanized_text, probability=rules_probability, seed=rules_seed)
+        humanized_text = await asyncio.to_thread(
+            aplicar_reglas_basicas, humanized_text, probability=rules_probability, seed=rules_seed
+        )
     metrics = calcular_metricas_texto(humanized_text)
 
     return humanized_text, metadata, metrics
