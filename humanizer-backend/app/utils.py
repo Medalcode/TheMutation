@@ -44,5 +44,5 @@ def generar_diff(original: str, humanized: str) -> str:
     """Genera un unified diff entre original y humanized."""
     orig_lines = original.splitlines(keepends=False)
     hum_lines = humanized.splitlines(keepends=False)
-    diff = difflib.unified_diff(orig_lines, hum_lines, fromfile='original', tofile='humanized', lineterm='')
-    return '\n'.join(list(diff))
+    diff = difflib.unified_diff(orig_lines, hum_lines, fromfile="original", tofile="humanized", lineterm="")
+    return "\n".join(list(diff))

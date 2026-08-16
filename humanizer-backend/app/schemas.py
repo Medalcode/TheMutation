@@ -20,7 +20,6 @@ class TextoInput(BaseModel):
     apply_rules: bool | None = Field(True)
     rules_probability: float | None = Field(1.0, ge=0.0, le=1.0)
     rules_seed: int | None = None
-    metadata: dict[str, Any] | None = None
 
 
 class Metrics(BaseModel):
