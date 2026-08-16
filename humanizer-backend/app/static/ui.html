@@ -1,60 +1,919 @@
-<!doctype html>
-<html>
+<!DOCTYPE html>
+<html lang="es">
 <head>
-    <meta charset="utf-8" />
-    <title>Humanizer UI</title>
-    <style>
-        body { font-family: Arial, sans-serif; margin: 24px; }
-        textarea { width: 100%; height: 200px; }
-        pre { background:#f6f8fa; padding:12px; white-space:pre-wrap; }
-        .col { display:flex; gap:12px; }
-        .col > div { flex:1 }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TheMutation — Humanizador de Texto con IA</title>
+  
+  <!-- Typography -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  
+  <style>
+    :root {
+      --bg-dark: #090d16;
+      --panel-bg: #111827;
+      --card-bg: #1f293d;
+      --card-border: #2d3d5a;
+      --primary: #6366f1;
+      --primary-hover: #4f46e5;
+      --accent: #10b981;
+      --accent-rose: #f43f5e;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --text-dim: #64748b;
+      --radius: 12px;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+      background-color: var(--bg-dark);
+      color: var(--text-main);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      line-height: 1.5;
+    }
+
+    /* Navbar Header */
+    header {
+      background: rgba(17, 24, 39, 0.8);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--card-border);
+      padding: 16px 32px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .brand-icon {
+      width: 36px;
+      height: 36px;
+      background: linear-gradient(135deg, var(--primary), var(--accent));
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+    }
+
+    .brand-title {
+      font-size: 1.25rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      background: linear-gradient(to right, #ffffff, #cbd5e1);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .brand-badge {
+      font-size: 0.75rem;
+      background: rgba(99, 102, 241, 0.15);
+      color: #818cf8;
+      border: 1px solid rgba(99, 102, 241, 0.3);
+      padding: 2px 8px;
+      border-radius: 20px;
+      font-weight: 600;
+    }
+
+    .status-badge {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      background: rgba(31, 41, 61, 0.6);
+      padding: 6px 14px;
+      border-radius: 20px;
+      border: 1px solid var(--card-border);
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background-color: var(--accent);
+      box-shadow: 0 0 8px var(--accent);
+    }
+
+    .status-dot.offline {
+      background-color: var(--accent-rose);
+      box-shadow: 0 0 8px var(--accent-rose);
+    }
+
+    /* Main Container */
+    main {
+      flex: 1;
+      max-width: 1400px;
+      width: 100%;
+      margin: 0 auto;
+      padding: 28px 24px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+    }
+
+    @media (max-width: 1024px) {
+      main {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* Panel Component */
+    .panel {
+      background: var(--panel-bg);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius);
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    }
+
+    .panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .panel-title {
+      font-size: 1.1rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    /* Tone Selector Pills */
+    .tone-section {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .section-label {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .tone-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+    }
+
+    @media (max-width: 640px) {
+      .tone-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    .tone-pill {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      color: var(--text-muted);
+      padding: 10px 12px;
+      border-radius: 10px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: all 0.2s ease;
+      user-select: none;
+    }
+
+    .tone-pill:hover {
+      background: #283754;
+      border-color: #3b4f75;
+      color: var(--text-main);
+    }
+
+    .tone-pill.active {
+      background: rgba(99, 102, 241, 0.2);
+      border-color: var(--primary);
+      color: #a5b4fc;
+      box-shadow: 0 0 12px rgba(99, 102, 241, 0.2);
+    }
+
+    /* Text Area Input */
+    .textarea-wrapper {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+    }
+
+    textarea {
+      width: 100%;
+      height: 240px;
+      background: #0b111e;
+      border: 1px solid var(--card-border);
+      border-radius: 10px;
+      padding: 16px;
+      color: var(--text-main);
+      font-family: inherit;
+      font-size: 0.95rem;
+      resize: vertical;
+      line-height: 1.6;
+      transition: border-color 0.2s ease;
+    }
+
+    textarea:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+    }
+
+    .textarea-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 8px;
+      font-size: 0.8rem;
+      color: var(--text-dim);
+    }
+
+    .quick-actions {
+      display: flex;
+      gap: 12px;
+    }
+
+    .btn-text {
+      background: none;
+      border: none;
+      color: var(--primary);
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+      padding: 2px 6px;
+      border-radius: 4px;
+      transition: background 0.2s ease;
+    }
+
+    .btn-text:hover {
+      background: rgba(99, 102, 241, 0.1);
+      text-decoration: underline;
+    }
+
+    /* Advanced Options Accordion */
+    details {
+      background: #0b111e;
+      border: 1px solid var(--card-border);
+      border-radius: 10px;
+      padding: 12px 16px;
+    }
+
+    summary {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      cursor: pointer;
+      user-select: none;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .options-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 16px;
+      margin-top: 14px;
+      padding-top: 14px;
+      border-top: 1px solid var(--card-border);
+    }
+
+    .option-item {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .option-item label {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .option-item input[type="range"] {
+      accent-color: var(--primary);
+    }
+
+    .option-item input[type="number"] {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      color: var(--text-main);
+      padding: 6px 10px;
+      border-radius: 6px;
+      font-size: 0.85rem;
+    }
+
+    /* Action Buttons */
+    .action-group {
+      display: grid;
+      grid-template-columns: 2fr 1fr;
+      gap: 12px;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, var(--primary), var(--primary-hover));
+      color: #ffffff;
+      border: none;
+      padding: 14px 20px;
+      border-radius: 10px;
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      box-shadow: 0 4px 16px rgba(99, 102, 241, 0.35);
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 20px rgba(99, 102, 241, 0.45);
+    }
+
+    .btn-primary:active {
+      transform: translateY(0);
+    }
+
+    .btn-secondary {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      color: var(--text-main);
+      padding: 14px 16px;
+      border-radius: 10px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: background 0.2s ease;
+    }
+
+    .btn-secondary:hover {
+      background: #283754;
+    }
+
+    /* Results Tabs */
+    .tabs-bar {
+      display: flex;
+      background: #0b111e;
+      padding: 4px;
+      border-radius: 10px;
+      border: 1px solid var(--card-border);
+      gap: 4px;
+    }
+
+    .tab-btn {
+      flex: 1;
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .tab-btn.active {
+      background: var(--card-bg);
+      color: var(--text-main);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    }
+
+    /* Output Display Area */
+    .output-box {
+      min-height: 240px;
+      background: #0b111e;
+      border: 1px solid var(--card-border);
+      border-radius: 10px;
+      padding: 16px;
+      font-size: 0.95rem;
+      line-height: 1.6;
+      white-space: pre-wrap;
+      word-break: break-word;
+      position: relative;
+    }
+
+    .placeholder-state {
+      color: var(--text-dim);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 200px;
+      gap: 8px;
+    }
+
+    /* Unified Diff View */
+    .diff-view {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.85rem;
+      line-height: 1.5;
+    }
+
+    .diff-line-add {
+      background-color: rgba(16, 185, 129, 0.15);
+      color: #6ee7b7;
+      padding: 2px 6px;
+      border-radius: 4px;
+      display: block;
+    }
+
+    .diff-line-del {
+      background-color: rgba(244, 63, 94, 0.15);
+      color: #fda4af;
+      padding: 2px 6px;
+      border-radius: 4px;
+      display: block;
+    }
+
+    /* Legibility Metrics Cards */
+    .metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+    }
+
+    @media (max-width: 640px) {
+      .metrics-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    .metric-card {
+      background: #0b111e;
+      border: 1px solid var(--card-border);
+      border-radius: 10px;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .metric-value {
+      font-size: 1.25rem;
+      font-weight: 800;
+      color: #a5b4fc;
+    }
+
+    .metric-label {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+
+    /* Metadata Footer */
+    .meta-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 0.8rem;
+      color: var(--text-dim);
+      background: #0b111e;
+      padding: 8px 14px;
+      border-radius: 8px;
+      border: 1px solid var(--card-border);
+    }
+
+    /* Toast Notification */
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      background: var(--accent);
+      color: #042f2e;
+      font-weight: 700;
+      padding: 12px 20px;
+      border-radius: 10px;
+      box-shadow: 0 10px 25px rgba(16, 185, 129, 0.4);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      opacity: 0;
+      transform: translateY(20px);
+      transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+      pointer-events: none;
+      z-index: 1000;
+    }
+
+    .toast.show {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* Spinner Animation */
+    .spinner {
+      width: 18px;
+      height: 18px;
+      border: 2px solid rgba(255, 255, 255, 0.3);
+      border-radius: 50%;
+      border-top-color: #ffffff;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+  </style>
 </head>
 <body>
-    <h1>Humanizer - UI</h1>
-    <label for="tono">Tono:</label>
-    <select id="tono">
-        <option value="tecnico">Técnico</option>
-        <option value="ejecutivo">Ejecutivo</option>
-        <option value="academico">Académico</option>
-    </select>
 
-    <p/>
-    <textarea id="inputTexto" placeholder="Pega aquí el texto generado por IA..."></textarea>
-    <p/>
-    <button id="procesar">Procesar</button>
-
-    <h2>Resultado</h2>
-    <div class="col">
-        <div>
-            <h3>Humanizado</h3>
-            <pre id="resultado">(aún sin procesar)</pre>
-        </div>
-        <div>
-            <h3>Diff</h3>
-            <pre id="diff">(aún sin procesar)</pre>
-        </div>
+  <!-- Header -->
+  <header>
+    <div class="brand">
+      <div class="brand-icon">🧬</div>
+      <div>
+        <span class="brand-title">TheMutation</span>
+        <span class="brand-badge">v0.2.0</span>
+      </div>
     </div>
 
-    <script>
-        document.getElementById('procesar').addEventListener('click', async () => {
-            const texto = document.getElementById('inputTexto').value;
-            const tono = document.getElementById('tono').value;
-            const res = await fetch('/api/v1/humanize/diff', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ texto: texto, tono: tono })
-            });
-            if (!res.ok) {
-                const t = await res.text();
-                alert('Error: ' + res.status + '\n' + t);
-                return;
-            }
-            const data = await res.json();
-            document.getElementById('resultado').innerText = data.humanized_text || '';
-            document.getElementById('diff').innerText = data.diff || '';
+    <div class="status-badge" id="statusBadge">
+      <div class="status-dot" id="statusDot"></div>
+      <span id="statusText">Conectado a la API</span>
+    </div>
+  </header>
+
+  <!-- Main Work Area -->
+  <main>
+    
+    <!-- LEFT PANEL: INPUT & CONTROLS -->
+    <section class="panel">
+      <div class="panel-header">
+        <h2 class="panel-title">
+          <span>✍️</span> Entrada de Texto de IA
+        </h2>
+        <div class="quick-actions">
+          <button class="btn-text" id="btnSample">Cargar Ejemplo</button>
+          <button class="btn-text" id="btnClear">Limpiar</button>
+        </div>
+      </div>
+
+      <!-- Tone Selector -->
+      <div class="tone-section">
+        <span class="section-label">Tono de Reesctritura</span>
+        <div class="tone-grid">
+          <div class="tone-pill active" data-tone="neutral">⚖️ Neutral</div>
+          <div class="tone-pill" data-tone="academico">🎓 Académico</div>
+          <div class="tone-pill" data-tone="ejecutivo">💼 Ejecutivo</div>
+          <div class="tone-pill" data-tone="tecnico">🛠️ Técnico</div>
+        </div>
+      </div>
+
+      <!-- Textarea Input -->
+      <div class="textarea-wrapper">
+        <textarea id="inputText" placeholder="Pega aquí el borrador generado por ChatGPT, Claude o Llama para humanizarlo..."></textarea>
+        <div class="textarea-footer">
+          <span>Consejo: Presiona <kbd style="background:#1f293d; padding:2px 6px; border-radius:4px;">Ctrl + Enter</kbd> para procesar</span>
+          <span id="charCount">0 / 10000 caracteres (0 palabras)</span>
+        </div>
+      </div>
+
+      <!-- Advanced Options -->
+      <details>
+        <summary>
+          <span>⚙️ Parámetros Avanzados</span>
+          <span>▼</span>
+        </summary>
+        <div class="options-grid">
+          <div class="option-item">
+            <label><span>Temperatura</span><span id="valTemp">0.3</span></label>
+            <input type="range" id="paramTemp" min="0" max="1" step="0.05" value="0.3">
+          </div>
+          <div class="option-item">
+            <label><span>Top-P</span><span id="valTopP">0.9</span></label>
+            <input type="range" id="paramTopP" min="0" max="1" step="0.05" value="0.9">
+          </div>
+          <div class="option-item">
+            <label><span>Tokens Máximos</span><span id="valTokens">512</span></label>
+            <input type="range" id="paramTokens" min="64" max="2048" step="64" value="512">
+          </div>
+          <div class="option-item">
+            <label><span>Probabilidad Reglas</span><span id="valProb">1.0</span></label>
+            <input type="range" id="paramProb" min="0" max="1" step="0.1" value="1.0">
+          </div>
+        </div>
+      </details>
+
+      <!-- Action Buttons -->
+      <div class="action-group">
+        <button class="btn-primary" id="btnHumanize">
+          <span id="btnIcon">⚡</span>
+          <span id="btnText">Humanizar Texto</span>
+        </button>
+        <button class="btn-secondary" id="btnDiff">
+          <span>🔍</span> Con Diff
+        </button>
+      </div>
+    </section>
+
+    <!-- RIGHT PANEL: OUTPUT & METRICS -->
+    <section class="panel">
+      <div class="panel-header">
+        <div class="tabs-bar">
+          <button class="tab-btn active" id="tabHumanized">✨ Resultado Humanizado</button>
+          <button class="tab-btn" id="tabDiff">📊 Unified Diff</button>
+        </div>
+        <button class="btn-text" id="btnCopy" style="display:none;">📋 Copiar</button>
+      </div>
+
+      <!-- Text Output -->
+      <div class="output-box" id="outputBox">
+        <div class="placeholder-state" id="placeholderState">
+          <span style="font-size:32px;">📄</span>
+          <span>El texto humanizado aparecerá aquí</span>
+        </div>
+        <div id="outputText" style="display:none;"></div>
+        <div id="diffView" class="diff-view" style="display:none;"></div>
+      </div>
+
+      <!-- Legibility Metrics -->
+      <div class="tone-section">
+        <span class="section-label">Métricas de Legibilidad y Estilo</span>
+        <div class="metrics-grid">
+          <div class="metric-card">
+            <span class="metric-value" id="metricFlesch">-</span>
+            <span class="metric-label">Lectura Flesch</span>
+          </div>
+          <div class="metric-card">
+            <span class="metric-value" id="metricGrade">-</span>
+            <span class="metric-label">Grado Escolar</span>
+          </div>
+          <div class="metric-card">
+            <span class="metric-value" id="metricWords">-</span>
+            <span class="metric-label">Palabras Totales</span>
+          </div>
+          <div class="metric-card">
+            <span class="metric-value" id="metricComplex">-</span>
+            <span class="metric-label">% P. Complejas</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Metadata Footer -->
+      <div class="meta-footer" id="metaFooter">
+        <span>Proveedor: <strong id="metaProvider">simulado / groq</strong></span>
+        <span>Latencia: <strong id="metaDuration">0 ms</strong></span>
+        <span>Modelo: <strong id="metaModel">-</strong></span>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Toast Notification -->
+  <div class="toast" id="toast">
+    <span>✅</span>
+    <span id="toastMsg">¡Texto copiado al portapapeles!</span>
+  </div>
+
+  <script>
+    // State management
+    let selectedTone = 'neutral';
+    let currentResponseData = null;
+
+    // DOM Elements
+    const inputText = document.getElementById('inputText');
+    const charCount = document.getElementById('charCount');
+    const btnHumanize = document.getElementById('btnHumanize');
+    const btnDiff = document.getElementById('btnDiff');
+    const btnSample = document.getElementById('btnSample');
+    const btnClear = document.getElementById('btnClear');
+    const btnCopy = document.getElementById('btnCopy');
+    const outputText = document.getElementById('outputText');
+    const diffView = document.getElementById('diffView');
+    const placeholderState = document.getElementById('placeholderState');
+    const tabHumanized = document.getElementById('tabHumanized');
+    const tabDiff = document.getElementById('tabDiff');
+    const toast = document.getElementById('toast');
+
+    // Advanced Sliders Sync
+    document.getElementById('paramTemp').addEventListener('input', (e) => document.getElementById('valTemp').innerText = e.target.value);
+    document.getElementById('paramTopP').addEventListener('input', (e) => document.getElementById('valTopP').innerText = e.target.value);
+    document.getElementById('paramTokens').addEventListener('input', (e) => document.getElementById('valTokens').innerText = e.target.value);
+    document.getElementById('paramProb').addEventListener('input', (e) => document.getElementById('valProb').innerText = e.target.value);
+
+    // Healthcheck on load
+    async function checkHealth() {
+      try {
+        const res = await fetch('/healthz');
+        if (res.ok) {
+          document.getElementById('statusDot').classList.remove('offline');
+          document.getElementById('statusText').innerText = 'API Conectada';
+        } else {
+          throw new Error('API Offline');
+        }
+      } catch (e) {
+        document.getElementById('statusDot').classList.add('offline');
+        document.getElementById('statusText').innerText = 'API Desconectada';
+      }
+    }
+    checkHealth();
+
+    // Tone Pills Handler
+    document.querySelectorAll('.tone-pill').forEach(pill => {
+      pill.addEventListener('click', () => {
+        document.querySelectorAll('.tone-pill').forEach(p => p.classList.remove('active'));
+        pill.classList.add('active');
+        selectedTone = pill.dataset.tone;
+      });
+    });
+
+    // Dynamic Word / Char counter
+    inputText.addEventListener('input', () => {
+      const len = inputText.value.length;
+      const words = inputText.value.trim() ? inputText.value.trim().split(/\s+/).length : 0;
+      charCount.innerText = `${len} / 10000 caracteres (${words} palabras)`;
+    });
+
+    // Sample Text Loader
+    btnSample.addEventListener('click', () => {
+      inputText.value = "Por otro lado, es importante destacar que se implementó una optimización significativa en el pipeline de procesamiento de datos con el objetivo de utilizar eficientemente los recursos del servidor. En conclusión, cabe mencionar que los resultados son positivos.";
+      inputText.dispatchEvent(new Event('input'));
+    });
+
+    btnClear.addEventListener('click', () => {
+      inputText.value = '';
+      inputText.dispatchEvent(new Event('input'));
+    });
+
+    // Tab Switching
+    tabHumanized.addEventListener('click', () => {
+      tabHumanized.classList.add('active');
+      tabDiff.classList.remove('active');
+      outputText.style.display = 'block';
+      diffView.style.display = 'none';
+    });
+
+    tabDiff.addEventListener('click', () => {
+      tabDiff.classList.add('active');
+      tabHumanized.classList.remove('active');
+      outputText.style.display = 'none';
+      diffView.style.display = 'block';
+    });
+
+    // Process API Call
+    async function processText(includeDiff = false) {
+      const text = inputText.value.trim();
+      if (!text) {
+        showToast('Por favor, ingresa un texto para humanizar.', true);
+        return;
+      }
+
+      setLoading(true);
+
+      const endpoint = includeDiff ? '/api/v1/humanize/diff' : '/api/v1/humanize';
+      const payload = {
+        texto: text,
+        tono: selectedTone,
+        temperature: parseFloat(document.getElementById('paramTemp').value),
+        top_p: parseFloat(document.getElementById('paramTopP').value),
+        max_tokens: parseInt(document.getElementById('paramTokens').value),
+        rules_probability: parseFloat(document.getElementById('paramProb').value),
+        apply_rules: true
+      };
+
+      try {
+        const response = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
         });
-    </script>
+
+        if (!response.ok) {
+          const errData = await response.json();
+          throw new Error(errData.detail || 'Error procesando la solicitud');
+        }
+
+        currentResponseData = await response.json();
+        renderResults(currentResponseData, includeDiff);
+      } catch (err) {
+        showToast(`Error: ${err.message}`, true);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    function setLoading(isLoading) {
+      if (isLoading) {
+        btnHumanize.disabled = true;
+        btnDiff.disabled = true;
+        document.getElementById('btnIcon').innerHTML = '<div class="spinner"></div>';
+        document.getElementById('btnText').innerText = 'Procesando...';
+      } else {
+        btnHumanize.disabled = false;
+        btnDiff.disabled = false;
+        document.getElementById('btnIcon').innerText = '⚡';
+        document.getElementById('btnText').innerText = 'Humanizar Texto';
+      }
+    }
+
+    function renderResults(data, hasDiff) {
+      placeholderState.style.display = 'none';
+      btnCopy.style.display = 'inline-block';
+
+      // Text Output
+      outputText.innerText = data.humanized_text;
+      outputText.style.display = 'block';
+
+      // Unified Diff Formatter
+      if (data.diff) {
+        const diffLines = data.diff.split('\n').map(line => {
+          if (line.startsWith('+') && !line.startsWith('+++')) {
+            return `<span class="diff-line-add">${escapeHtml(line)}</span>`;
+          } else if (line.startsWith('-') && !line.startsWith('---')) {
+            return `<span class="diff-line-del">${escapeHtml(line)}</span>`;
+          }
+          return escapeHtml(line);
+        }).join('<br>');
+        diffView.innerHTML = diffLines;
+      } else {
+        diffView.innerText = "Sin diferencias detectadas.";
+      }
+
+      if (hasDiff) {
+        tabDiff.click();
+      } else {
+        tabHumanized.click();
+      }
+
+      // Render Metrics
+      if (data.metrics) {
+        document.getElementById('metricFlesch').innerText = data.metrics.flesch_reading_ease.toFixed(1);
+        document.getElementById('metricGrade').innerText = data.metrics.flesch_kincaid_grade.toFixed(1);
+        document.getElementById('metricWords').innerText = data.metrics.word_count;
+        document.getElementById('metricComplex').innerText = `${data.metrics.percent_complex_words.toFixed(1)}%`;
+      }
+
+      // Metadata
+      if (data.model_metadata) {
+        document.getElementById('metaProvider').innerText = data.model_metadata.provider || 'groq';
+        document.getElementById('metaDuration').innerText = `${data.model_metadata.duration_ms || 0} ms`;
+        document.getElementById('metaModel').innerText = data.model_metadata.model || 'groq-llama3';
+      }
+    }
+
+    function escapeHtml(str) {
+      return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    }
+
+    // Copy Handler
+    btnCopy.addEventListener('click', () => {
+      if (!outputText.innerText) return;
+      navigator.clipboard.writeText(outputText.innerText);
+      showToast('¡Texto humanizado copiado al portapapeles!');
+    });
+
+    function showToast(msg, isError = false) {
+      document.getElementById('toastMsg').innerText = msg;
+      toast.style.backgroundColor = isError ? 'var(--accent-rose)' : 'var(--accent)';
+      toast.style.color = isError ? '#ffffff' : '#042f2e';
+      toast.classList.add('show');
+      setTimeout(() => toast.classList.remove('show'), 3000);
+    }
+
+    // Keybindings & Listeners
+    btnHumanize.addEventListener('click', () => processText(false));
+    btnDiff.addEventListener('click', () => processText(true));
+
+    document.addEventListener('keydown', (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+        processText(false);
+      }
+    });
+  </script>
 </body>
 </html>
