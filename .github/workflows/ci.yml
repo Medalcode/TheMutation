@@ -1,4 +1,4 @@
-name: CI
+name: CI/CD Pipeline
 
 on:
   push:
@@ -6,44 +6,52 @@ on:
   pull_request:
     branches: [ main ]
 
+defaults:
+  run:
+    working-directory: humanizer-backend
+
 jobs:
-  test:
+  test-and-lint:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: [3.11]
+        python-version: ["3.11", "3.12"]
 
     steps:
-      - name: Checkout
+      - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v4
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
+          cache: pip
 
-      - name: Cache pip
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('**/humanizer-backend/requirements.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-pip-
-
-      - name: Install dependencies
+      - name: Install Dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r humanizer-backend/requirements.txt
+          pip install -e ".[dev]"
 
-      - name: Install audit tools
-        run: |
-          pip install pip-audit
+      - name: Run Ruff Lint
+        run: ruff check .
 
-      - name: Run tests
-        working-directory: humanizer-backend
-        run: |
-          pytest -q
+      - name: Run Ruff Format Check
+        run: ruff format --check .
 
-      - name: Run pip-audit
+      - name: Run Test Suite (54 Tests)
+        run: pytest -v
+
+      - name: Dependency Security Audit
         run: |
           pip-audit --progress=off || true
+
+  docker-build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Build Docker Image
+        run: |
+          cd humanizer-backend
+          docker build -t humanizer-backend:test .

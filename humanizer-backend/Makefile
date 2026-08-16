@@ -4,7 +4,7 @@ venv:
 	python -m venv .venv
 
 install: venv
-	. .venv/bin/activate && pip install -r requirements.txt
+	. .venv/bin/activate && pip install -e ".[dev]"
 
 run:
 	. .venv/bin/activate && uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
